@@ -2,7 +2,7 @@ import numpy as np
 import cmath
 from typing import List
 
-from . import exceptions as ex
+from .exceptions import *
 
 INVSQRT2 = 1 / cmath.sqrt(2)
 
@@ -26,17 +26,38 @@ class Gate:
         self.mat = matrix
         self.qbts = qubits
         self.n = name
-    
-    # later functionality
-    # def __add__(self, other):
-    #     if other.t == self.t:
-    #         if np.union1d(other.qbts, self.qbts) < len(other.qbts) + len(self.qbts):
-    #             # uh oh something went fuckity wuckity, ops on overlapping gates
-    #             # gates on the same qubits cannot be simultaneous
-    #             raise ex.DoubleOperationException()
-    #         else:
-    #             pass
 
+    def __str__(self):
+        return f"{self.n}(t={self.t}, qubits={self.qbts})"
+    
+    def __add__(self, other): # literally gate_kron
+        if self.t == other.t:
+            if len(np.union1d(self.qbts, other.qbts)) < len(self.qbts) + len(other.qbts):
+                # same time, overlapping qubits
+                raise DoubleOperationException()
+            elif abs(min(other.qbts) - max(self.qbts)) == 1:
+                # you can just take the tensor product of the two gates
+                return gate_kron(self, other, self.t)
+            elif abs(min(other.qbts) - max(self.qbts)) != 1:
+                lower_gate = self if max(self.qbts) < min(other.qbts) else other
+
+                while True:
+                    if min(other.qbts) - max(lower_gate.qbts) == 1:
+                        return gate_kron(self, other, self.t)
+                    else:
+                        lower_gate = gate_kron(lower_gate, I(lower_gate.t, min(lower_gate.qbts) + 1), lower_gate.t)
+
+# tensor product of two gates, kronecker product of their matrices
+def gate_kron(g1: Gate, g2: Gate, t):
+    return Gate(t, tensor_product(g1.mat, g2.mat), g1.qbts + g2.qbts, f"{g1.n} {g2.n}")
+
+
+class I(Gate):
+    def __init__(self, time: int, qubit: int):
+        mat = np.matrix([[1, 0],
+                         [0, 1]]).astype(complex)
+
+        super().__init__(time, mat, [qubit], "I")
 
 # single qubit X (not)
 class X(Gate):

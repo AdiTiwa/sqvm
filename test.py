@@ -1,10 +1,18 @@
-import numpy as np
-
+from huaq.gates import H, X, Z, CNot
 from huaq.circuit import Circuit
-from huaq.gates import H
 
-circuit = Circuit(1)
+c = Circuit(2)
 
-circuit.add_gate(H(0, 0))
+gates = [
+    H(0, 0),
+    H(0, 1),
 
-print(circuit.run())
+    CNot(1, (0, 1)),
+
+    Z(2, 0),
+    X(2, 1),
+]
+
+c.add_gates(gates)
+
+print(c.run())
