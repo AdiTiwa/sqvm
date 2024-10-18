@@ -1,6 +1,6 @@
 import numpy as np
 import cmath
-from typing import List
+from typing import List, Union
 
 from .exceptions import *
 
@@ -20,12 +20,33 @@ def tensor_product(A: np.matrix, B:np.matrix):
 
     return tensor_product_flat
 
+# precomputed or hydrated gate parameters
+class Var:
+    def __init__(self, name: str, value, precomputed: bool = True):
+        self.name = name
+        self.value = value
+        self.precomputed = precomputed
+
 class Gate:
     def __init__(self, time: int, matrix, qubits: List[int], name: str):
         self.t = time
         self.mat = matrix
         self.qbts = qubits
         self.n = name
+
+        self.precomputed = True
+
+    def __init_postcomputed__(self, time: int, qubits: List[int], name: str, variables: List[Var]):
+        # if it is not precomputed, it will be related to a Var object, needs a postcompute method
+        self.t = time
+        self.qbts = qubits
+        self.n = name + "(" + ", ".join([v.name for v in variables]) + ")"
+        self.vars = variables
+        
+        self.precomputed = False
+
+    def post_compute(self):
+        raise NotImplementedError()
 
     def __str__(self):
         return f"{self.n}(t={self.t}, qubits={self.qbts})"
@@ -100,3 +121,61 @@ class CNot(Gate):
                          [0, 0, 1, 0]]).astype(complex)
 
         super().__init__(time, mat, list(qubits), "CX")
+
+# two qubit CZ
+class CZ(Gate):
+    def __init__(self, time: int, qubits: tuple[int, int]):
+        mat = np.matrix([[1, 0, 0, 0],
+                         [0, 1, 0, 0],
+                         [0, 0, 1, 0],
+                         [0, 0, 0, -1]]).astype(complex)
+
+        super().__init__(time, mat, list(qubits), "CZ")
+
+# two qubit SWAP
+class SWAP(Gate):
+    def __init__(self, time: int, qubits: tuple[int, int]):
+        mat = np.matrix([[1, 0, 0, 0],
+                         [0, 0, 1, 0],
+                         [0, 1, 0, 0],
+                         [0, 0, 0, 1]]).astype(complex)
+
+        super().__init__(time, mat, list(qubits), "SWAP")
+
+# two qubit XX
+class XX(Gate):
+    def __init__(self, time: int, qubits: tuple[int, int]):
+        mat = np.matrix([[0, 0, 0, 1],
+                         [0, 0, 1, 0],
+                         [0, 1, 0, 0],
+                         [1, 0, 0, 0]]).astype(complex)
+
+        super().__init__(time, mat, list(qubits), "XX")
+
+# two qubit exponentiated XX
+class eXX(Gate):
+    def __init__(self, time:int, qubits: tuple[int, int], exponent: Union[Var, int]):
+        if isinstance(exponent, int) or exponent.precomputed:
+            exp = exponent if isinstance(exponent, int) else exponent.value
+            f = cmath.exp(1j * exp * np.pi / 2)
+            c = f * cmath.cos(exp * np.pi / 2)
+            s = -1j * f * cmath.sin(exp * np.pi / 2)
+            mat = np.matrix([[c, 0, 0, s],
+                             [0, c, s, 0],
+                             [0, s, c, 0],
+                             [s, 0, 0, c]]). astype(complex)
+
+            super().__init__(time, mat, list(qubits), f"eXX({exponent})")
+        else:
+            super().__init_postcomputed__(time, list(qubits), "eXX", [exponent])
+
+    def post_compute(self):
+        f = cmath.exp(1j * self.vars[0].value * np.pi / 2)
+        c = f * cmath.cos(self.vars[0].value * np.pi / 2)
+        s = -1j * f * cmath.sin(self.vars[0].value * np.pi / 2)
+        self.mat = np.matrix([[c, 0, 0, s],
+                             [0, c, s, 0],
+                             [0, s, c, 0],
+                             [s, 0, 0, c]]).astype(complex)
+
+        
