@@ -1,18 +1,20 @@
+import numpy as np
+
 from huaq.gates import H, X, Z, CNot, eXX
 from huaq.circuit import Circuit, Sweep
 
-c = Circuit(2)
-c.add_variable("theta")
+c = Circuit(3)
+c.add_variable('theta')
 
 gates = [
-    H(0, 0),
+    eXX(1, (0, 1), c.get_variable('theta')),
 
-    eXX(1, (0, 1), c.get_variable("theta")),
-
-    Z(2, 0),
-    X(2, 1),
+    X(2, 0),
+    Z(2, 1),
 ]
 
 c.add_gates(gates)
 
-print(c.run(theta=Sweep(0, 2, 10)))
+result = c.run(log=True, theta=Sweep(0, 2 * np.pi, 100))
+print(result)
+result.plot()

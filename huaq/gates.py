@@ -3,6 +3,7 @@ import cmath
 from typing import List, Union
 
 from .exceptions import *
+from .types import Var
 
 INVSQRT2 = 1 / cmath.sqrt(2)
 
@@ -20,13 +21,7 @@ def tensor_product(A: np.matrix, B:np.matrix):
 
     return tensor_product_flat
 
-# precomputed or hydrated gate parameters
-class Var:
-    def __init__(self, name: str, value, precomputed: bool = True):
-        self.name = name
-        self.value = value
-        self.precomputed = precomputed
-
+# general gate class
 class Gate:
     def __init__(self, time: int, matrix, qubits: List[int], name: str):
         self.t = time
@@ -45,7 +40,7 @@ class Gate:
         
         self.precomputed = False
 
-    def post_compute(self):
+    def post_compute(self, value):
         raise NotImplementedError()
 
     def __str__(self):
@@ -154,9 +149,9 @@ class XX(Gate):
 
 # two qubit exponentiated XX
 class eXX(Gate):
-    def __init__(self, time:int, qubits: tuple[int, int], exponent: Union[Var, int]):
+    def __init__(self, time:int, qubits: tuple[int, int], exponent: Union[Var, float]):
         if isinstance(exponent, int) or exponent.precomputed:
-            exp = exponent if isinstance(exponent, int) else exponent.value
+            exp = exponent if isinstance(exponent, float) else exponent.value
             f = cmath.exp(1j * exp * np.pi / 2)
             c = f * cmath.cos(exp * np.pi / 2)
             s = -1j * f * cmath.sin(exp * np.pi / 2)
@@ -169,10 +164,10 @@ class eXX(Gate):
         else:
             super().__init_postcomputed__(time, list(qubits), "eXX", [exponent])
 
-    def post_compute(self):
-        f = cmath.exp(1j * self.vars[0].value * np.pi / 2)
-        c = f * cmath.cos(self.vars[0].value * np.pi / 2)
-        s = -1j * f * cmath.sin(self.vars[0].value * np.pi / 2)
+    def post_compute(self, value: float):
+        f = cmath.exp(1j * value * np.pi / 2)
+        c = f * cmath.cos(value * np.pi / 2)
+        s = -1j * f * cmath.sin(value * np.pi / 2)
         self.mat = np.matrix([[c, 0, 0, s],
                              [0, c, s, 0],
                              [0, s, c, 0],
