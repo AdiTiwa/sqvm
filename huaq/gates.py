@@ -114,6 +114,13 @@ class S(Gate):
                          [0, 1j]]).astype(complex)
         super().__init__(time, mat, [qubit], "H")
 
+# square root of an X/NOT gate
+class sqX(Gate):
+    def __init__(self, time: int, qubit: int):
+        mat = np.matrix([[1, -1j],
+                         [-1j, 1]]).astype(complex)
+        super().__init__(time, mat, [qubit], "H")
+
 # two qubit CNOT
 class CNot(Gate):
     def __init__(self, time: int, qubits: tuple[int, int]):
@@ -123,6 +130,7 @@ class CNot(Gate):
                          [0, 0, 1, 0]]).astype(complex)
 
         super().__init__(time, mat, list(qubits), "CX")
+
 
 # two qubit CZ
 class CZ(Gate):
