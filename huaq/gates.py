@@ -119,7 +119,7 @@ class sqX(Gate):
     def __init__(self, time: int, qubit: int):
         mat = np.matrix([[1, -1j],
                          [-1j, 1]]).astype(complex)
-        super().__init__(time, mat, [qubit], "H")
+        super().__init__(time, mat, [qubit], "sqX")
 
 # two qubit CNOT
 class CNot(Gate):
