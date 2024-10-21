@@ -107,6 +107,13 @@ class H(Gate):
 
         super().__init__(time, mat, [qubit], "H")
 
+# single qubit S
+class S(Gate):
+    def __init__(self, time: int, qubit: int):
+        mat = np.matrix([[1, 0],
+                         [0, 1j]]).astype(complex)
+        super().__init__(time, mat, [qubit], "H")
+
 # two qubit CNOT
 class CNot(Gate):
     def __init__(self, time: int, qubits: tuple[int, int]):
