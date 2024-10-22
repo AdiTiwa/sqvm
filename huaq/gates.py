@@ -107,6 +107,60 @@ class H(Gate):
 
         super().__init__(time, mat, [qubit], "H")
 
+# single qubit rotation around x
+class Rx(Gate):
+    def __init__(self, time: int, qubit: int, angle: Union[Var, float]):
+        if isinstance(angle, int) or angle.precomputed:
+            a = angle if isinstance(angle, float) else angle.value
+            mat = np.matrix([[cmath.cos(a / 2), -1j * cmath.sin(a / 2)],
+                             [-1j * cmath.sin(a / 2), cmath.cos(a / 2)]]).astype(complex)
+
+            super().__init__(time, mat, [qubit], f"Rx({angle})")
+        else:
+            super().__init_postcomputed__(time, [qubit], "Rx", [angle])
+
+    def post_compute(self, value: float):
+        self.mat = np.matrix([[cmath.cos(value / 2), -1j * cmath.sin(value / 2)],
+                              [-1j * cmath.sin(value / 2), cmath.cos(value / 2)]]).astype(complex)
+
+# single qubit rotation around y
+class Ry(Gate):
+    def __init__(self, time: int, qubit: int, angle: Union[Var, float]):
+        if isinstance(angle, int) or angle.precomputed:
+            a = angle if isinstance(angle, float) else angle.value
+            mat = np.matrix([[cmath.cos(a / 2), -1 * cmath.sin(a / 2)],
+                             [cmath.sin(a / 2), cmath.cos(a / 2)]]).astype(complex)
+
+            super().__init__(time, mat, [qubit], f"Ry({angle})")
+        else:
+            super().__init_postcomputed__(time, [qubit], "Ry", [angle])
+
+    def post_compute(self, value: float):
+        self.mat = np.matrix([[cmath.cos(value / 2), -1 * cmath.sin(value / 2)],
+                              [cmath.sin(value / 2), cmath.cos(value / 2)]]).astype(complex)
+
+# single qubit rotation around z
+class Rz(Gate):
+    def __init__(self, time: int, qubit: int, angle: Union[Var, float]):
+        if isinstance(angle, int) or angle.precomputed:
+            a = angle if isinstance(angle, float) else angle.value
+            nege = cmath.exp(-1j * a / 2)
+            pose = cmath.exp(1j * a / 2)
+
+            mat = np.matrix([[nege, 0],
+                             [0, pose]]).astype(complex)
+            
+            super().__init__(time, mat, [qubit], f"Rz({angle})")
+        else:
+            super().__init_postcomputed__(time, [qubit], "Rz", [angle])
+
+    def post_compute(self, value: float):
+        nege = cmath.exp(-1j * value / 2)
+        pose = cmath.exp(1j * value / 2)
+
+        self.mat = np.matrix([[nege, 0],
+                             [0, pose]]).astype(complex)
+
 # single qubit S
 class S(Gate):
     def __init__(self, time: int, qubit: int):
@@ -143,7 +197,7 @@ class CZ(Gate):
         super().__init__(time, mat, list(qubits), "CZ")
 
 # two qubit SWAP
-class SWAP(Gate):
+class Swap(Gate):
     def __init__(self, time: int, qubits: tuple[int, int]):
         mat = np.matrix([[1, 0, 0, 0],
                          [0, 0, 1, 0],
