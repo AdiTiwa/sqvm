@@ -122,24 +122,24 @@ class Circuit:
         return ProbabilityDensity(state, kwargs)
     
     def run(self, log: bool = False, **kwargs):
-        sweeps = [] 
+        ranges = [] 
         iterations = 1
         variable_state = {}
 
         for k, v in kwargs.items():
-            if isinstance(v, Sweep):
-                iterations *= v.steps
-                v.name = k
-                sweeps.append(v)
+            if isinstance(v, Range):
+                iterations *= len(v.space)
+                v.set_name(k)
+                ranges.append(v)
             else:
                 variable_state[k] = v
 
         results = Result([], list(kwargs.keys()))
         
-        possible_sweeps = cartesian_product(*[sweep.values for sweep in sweeps])
+        possible_range_values = cartesian_product(*[r.values for r in ranges])
         for i in range(iterations):
-            for idx, s in enumerate(possible_sweeps[i]):
-                variable_state[sweeps[idx].name] = s
+            for idx, s in enumerate(possible_range_values[i]):
+                variable_state[ranges[idx].name] = s
                 debug_log(f"running with {variable_state}", log)
 
             results.append(self.singleton(log=log, **variable_state))
