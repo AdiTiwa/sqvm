@@ -30,18 +30,17 @@ def compile_gates(gates: List[Gate], qubits: int, log: bool = False) -> List[Gat
                 # distance is greater than 1, need to insert identity gate
                 g1 = gates.pop(i)
 
-                gates.insert(i, gate_kron(g1, I(g1.t, min(g1.qbts) + 1), g1.t))
+                gates.insert(i, identity_gate_kron(g1, True, g1.t))
                 debug_log(f"merged {g1}, I, i={i}", log)
         elif completed:
             if min(gates[i].qbts) != 0:
                 g1 = gates.pop(i)
-                gates.insert(i, gate_kron(I(g1.t, 0), g1, g1.t)) # pad down to qubit 0
+                gates.insert(i, identity_gate_kron(g1, False, g1.t)) # pad down to qubit 0
                 debug_log(f"merged I, {g1}, i={i}", log)
             elif max(gates[i].qbts) != qubits - 1:
                 g1 = gates.pop(i)
-                Igate = I(g1.t, max(g1.qbts) + 1)
-                gates.insert(i, gate_kron(g1, Igate, g1.t)) # pad up to qubit qubits - 1
-                debug_log(f"merged {g1}, {Igate}, i={i}", log)
+                gates.insert(i, identity_gate_kron(g1, True, g1.t)) # pad up to qubit qubits - 1
+                debug_log(f"merged {g1}, I, i={i}", log)
             else:
                 debug_log(f"completed gate {gates[i]}, t={i}", log)
                 i += 1
@@ -115,7 +114,7 @@ class Circuit:
                     gate.post_compute(kwargs[gate.vars[0].name])
                     debug_log(f"post computed {gate} with v={kwargs[gate.vars[0].name]}", log)
 
-        program = compile_gates(self.gates.copy(), len(self.qubits), log=False)
+        program = compile_gates(self.gates.copy(), len(self.qubits), log=log)
         
         for gate in program:
             state = np.dot(state, gate.mat)

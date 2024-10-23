@@ -1,20 +1,19 @@
-import numpy as np
+def test_tensor():
+    import numpy as np
+    from huaq.gates import tensor_product, tensor_prod
+    from huaq.utils import algorithm_time
 
-from huaq.gates import H, X, Z, CNot, eXX
-from huaq.circuit import Circuit, Sweep
+    def tensor1():
+        mat1 = np.random.randint(5, size=(128, 128))
+        mat2 = np.random.randint(5, size=(2, 2))
+        
+        tensor = tensor_product(mat1, mat2)
 
-c = Circuit(3)
-c.add_variable('theta')
+    def tensor2():
+        mat1 = np.random.randint(5, size=(128, 128))
+        mat2 = np.random.randint(5, size=(2, 2))
+        
+        tensor = tensor_prod(mat1, mat2)
 
-gates = [
-    eXX(1, (0, 1), c.get_variable('theta')),
-
-    X(2, 0),
-    Z(2, 1),
-]
-
-c.add_gates(gates)
-
-result = c.run(log=True, theta=Sweep(0, 2 * np.pi, 100))
-print(result)
-result.plot()
+    print(algorithm_time(tensor1))
+    print(algorithm_time(tensor2))

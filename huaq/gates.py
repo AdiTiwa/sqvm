@@ -7,9 +7,8 @@ from .types import Var
 
 INVSQRT2 = 1 / cmath.sqrt(2)
 
-# there is technically a method in numpy that does this but it really didn't like outputting
-# a square matrix and always made rows of matrix vectors??? its nonsense
-def tensor_product(A: np.matrix, B:np.matrix):
+# SLOWER :D
+def tensor_prod(A: np.matrix, B:np.matrix):
     tensor_product_flat = np.zeros((A.shape[0] * B.shape[0], A.shape[0] * B.shape[0]), complex) 
 
     # Compute the tensor product manually
@@ -20,6 +19,15 @@ def tensor_product(A: np.matrix, B:np.matrix):
                     tensor_product_flat[i * B.shape[0] + k][j * B.shape[1] + l] = A.item(i, j) * B.item(k, l)
 
     return tensor_product_flat
+
+def tensor_product(A: np.matrix, B: np.matrix):
+    prod = np.zeros((A.shape[0] * B.shape[0], A.shape[1] * B.shape[1]), complex)
+
+    for i in range(A.shape[0] * B.shape[0]):
+        for j in range(A.shape[1] * B.shape[1]):
+            prod[i, j] = A.item(i // B.shape[0], j // B.shape[1]) * B.item(i % B.shape[0], j % B.shape[1])
+
+    return prod
 
 # general gate class
 class Gate:
@@ -67,6 +75,20 @@ class Gate:
 def gate_kron(g1: Gate, g2: Gate, t):
     return Gate(t, tensor_product(g1.mat, g2.mat), g1.qbts + g2.qbts, f"{g1.n} {g2.n}")
 
+def identity_gate_kron(g1: Gate, below: bool, t):
+    # tensor product is easier to compute by just duplication the matrix for the corners of a larger square matrix
+
+    mat = np.matrix(np.zeros((2 * g1.mat.shape[0], 2 * g1.mat.shape[1]), complex))
+
+    for i in range(g1.mat.shape[0]):
+        for j in range(g1.mat.shape[1]):
+            mat[i, j] = g1.mat.item(i, j)
+            mat[i + g1.mat.shape[0], j + g1.mat.shape[1]] = g1.mat.item(i, j)
+
+    if below:
+        return Gate(t, mat, g1.qbts + [max(g1.qbts) + 1], f"{g1.n} I")
+    else:
+        return Gate(t, mat, g1.qbts + [min(g1.qbts) - 1], f"I {g1.n}")
 
 class I(Gate):
     def __init__(self, time: int, qubit: int):
