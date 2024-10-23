@@ -136,7 +136,7 @@ class Circuit:
 
         results = Result([], list(kwargs.keys()))
         
-        possible_range_values = cartesian_product(*[r.values for r in ranges])
+        possible_range_values = cartesian_product(*[r.space for r in ranges])
         for i in range(iterations):
             for idx, s in enumerate(possible_range_values[i]):
                 variable_state[ranges[idx].name] = s
