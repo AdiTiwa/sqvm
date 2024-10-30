@@ -1,3 +1,4 @@
+# test the speed of the two versions of tensor products, tensor_product and tensor_prod
 def test_tensor():
     import numpy as np
     from huaq.gates import tensor_product, tensor_prod

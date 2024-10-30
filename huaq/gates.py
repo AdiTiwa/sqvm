@@ -48,7 +48,7 @@ class Gate:
         
         self.precomputed = False
 
-    def post_compute(self, value):
+    def post_compute(self, value, ret: bool = False):
         raise NotImplementedError()
 
     def __str__(self):
@@ -141,10 +141,14 @@ class Rx(Gate):
         else:
             super().__init_postcomputed__(time, [qubit], "Rx", [angle])
 
-    def post_compute(self, value: float):
-        self.mat = np.matrix([[cmath.cos(value / 2), -1j * cmath.sin(value / 2)],
+    def post_compute(self, value: float, ret: bool = False):
+        mat = np.matrix([[cmath.cos(value / 2), -1j * cmath.sin(value / 2)],
                               [-1j * cmath.sin(value / 2), cmath.cos(value / 2)]]).astype(complex)
 
+        if ret:
+            return Gate(self.t, mat, self.qbts, self.n)
+        else:
+            self.mat = mat
 # single qubit rotation around y
 class Ry(Gate):
     def __init__(self, time: int, qubit: int, angle: Union[Var, float]):
@@ -157,9 +161,14 @@ class Ry(Gate):
         else:
             super().__init_postcomputed__(time, [qubit], "Ry", [angle])
 
-    def post_compute(self, value: float):
-        self.mat = np.matrix([[cmath.cos(value / 2), -1 * cmath.sin(value / 2)],
+    def post_compute(self, value: float, ret: bool = False):
+        mat = np.matrix([[cmath.cos(value / 2), -1 * cmath.sin(value / 2)],
                               [cmath.sin(value / 2), cmath.cos(value / 2)]]).astype(complex)
+
+        if ret:
+            return Gate(self.t, mat, self.qbts, self.n)
+        else:
+            self.mat = mat
 
 # single qubit rotation around z
 class Rz(Gate):
@@ -176,12 +185,17 @@ class Rz(Gate):
         else:
             super().__init_postcomputed__(time, [qubit], "Rz", [angle])
 
-    def post_compute(self, value: float):
+    def post_compute(self, value: float, ret: bool = False):
         nege = cmath.exp(-1j * value / 2)
         pose = cmath.exp(1j * value / 2)
 
-        self.mat = np.matrix([[nege, 0],
+        mat = np.matrix([[nege, 0],
                              [0, pose]]).astype(complex)
+
+        if ret:
+            return Gate(self.t, mat, self.qbts, self.n)
+        else:
+            self.mat = mat
 
 # single qubit S
 class S(Gate):
@@ -255,13 +269,18 @@ class eXX(Gate):
         else:
             super().__init_postcomputed__(time, list(qubits), "eXX", [exponent])
 
-    def post_compute(self, value: float):
+    def post_compute(self, value: float, ret: bool = False):
         f = cmath.exp(1j * value * np.pi / 2)
         c = f * cmath.cos(value * np.pi / 2)
         s = -1j * f * cmath.sin(value * np.pi / 2)
-        self.mat = np.matrix([[c, 0, 0, s],
+        mat = np.matrix([[c, 0, 0, s],
                              [0, c, s, 0],
                              [0, s, c, 0],
                              [s, 0, 0, c]]).astype(complex)
+
+        if ret:
+            return Gate(self.t, mat, self.qbts, self.n)
+        else:
+            self.mat = mat
 
         

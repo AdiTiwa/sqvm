@@ -10,9 +10,34 @@ def debug_log(string: str, log: bool = False):
     if log:
         print(string)
 
+# compile a list of gates sorted by time and subsorted by qubit into a list of single gates at different times
 def compile_gates(gates: List[Gate], qubits: int, log: bool = False) -> List[Gate]:
+    program = []
+
+    i = 0
+    t = -1
+    sim = []
+    while i < len(gates):
+        if gates[i].t != t:
+            if len(sim) > 0:
+                program.append(compile_simultaneous_gates(sim, qubits, log=log))
+                sim = []
+            t = gates[i].t
+        sim.append(gates[i])
+        i += 1
+
+    if log:
+        print("---")
+        print(f"compilation complete with i={i}")
+        for gate in gates:
+            print(gate)
+    return gates
+
+# this function assumes that all the gates are in the same time, a la the timeslice struct
+def compile_simultaneous_gates(gs: List[Gate], qubits: int, log: bool = False) -> Gate:
     i = 0
     completed = False
+    gates = gs.copy()
     while i < len(gates):
         if i < len(gates) - 1 and gates[i].t == gates[i + 1].t:
             completed = False
@@ -43,24 +68,37 @@ def compile_gates(gates: List[Gate], qubits: int, log: bool = False) -> List[Gat
                 debug_log(f"merged {g1}, I, i={i}", log)
             else:
                 debug_log(f"completed gate {gates[i]}, t={i}", log)
-                i += 1
+                break
         else:
-            completed = True
+            completed = True 
 
-    if log:
-        print("---")
-        print(f"compilation complete with i={i}")
+    return gates[-1]
+
+# this class is a wrapper for a list of gates that happen at the same time
+class TimeSlice:
+    def __init__(self, t: int, gates: List[Gate], precomputed: bool = False):
+        self.t = t
+        self.gates = gates
+        self.precomputed = precomputed
+
+        self.dependencies = []
+
         for gate in gates:
-            print(gate)
-    return gates
+            if not gate.precomputed:
+                for var in gate.vars:
+                    self.dependencies.append(var)
 
-class Circuit: 
-    def __init__(self, qubits: int):
-        self.qubits = list(range(qubits))
-        self.gates = []
-        self.variables = []
+        self.unitary = None
 
-        self.precomputed = True
+    def append(self, gate: Gate):
+        self.gates.append(gate)
+        
+        if not gate.precomputed:
+            self.precomputed = False
+            for var in gate.vars:
+                self.dependencies.append(var)
+
+        self._sort_gates()
 
     def _sort_gates(self):
         gs = sorted(self.gates, key=lambda x: x.t)
@@ -70,16 +108,67 @@ class Circuit:
             simultaneous_gates = [gate for gate in gs if gate.t == i]
             self.gates += sorted(simultaneous_gates, key=lambda x: min(x.qbts))
 
+
+    def compile(self, qubits: int, log: bool = False, **kwargs):
+        postcomputed_gates = []
+
+        # this function allows the injection of postcomputed gates into the list of gates and practically means that gates that don't rely
+        # on a parameter can be computed once and never again throughout the course of the program
+        if not self.precomputed:
+            debug_log(f"this is not precomputed need to inject {self.dependencies}", log)
+            if not all([var.name in kwargs for var in self.dependencies]):
+                raise MissingVariable()
+            
+            for gate in self.gates:
+                if not gate.precomputed:
+                    postcomputed_gates.append(gate.post_compute(kwargs[gate.vars[0].name], ret=True))
+                    debug_log(f"post computed {gate} with v={kwargs[gate.vars[0].name]}", log)
+                else:
+                    postcomputed_gates.append(gate)
+        else:
+            postcomputed_gates = self.gates.copy()
+
+        self.unitary = compile_simultaneous_gates(postcomputed_gates, qubits, log=log)
+
+        return self
+
+    def __str__(self):
+        return f"TimeSlice({self.t}, {g.__str__() for g in self.gates})"
+
+class Circuit: 
+    def __init__(self, qubits: int):
+        self.qubits = list(range(qubits))
+        self.gates = []
+        self.variables = []
+
+        self.precomputed = True
+        self.compiled = False
+        self.compiled_gates = []
+    
+    # since the gates are already sorted by qubit in the TimeSlice class, we can just sort by time
+    def _sort_gates(self):
+        self.gates = sorted(self.gates, key=lambda x: x.t)
+
     def add_gate(self, gate: Gate):
         if len(np.union1d(gate.qbts, self.qubits)) != len(self.qubits):
             raise QubitOutOfRange() # if there isn't a complete overlap of the qubits there is a weird qubit somewhere
-        self.gates.append(gate)
-
-        if not gate.precomputed:
-            self.precomputed = False
+        
+        t = gate.t
+        if not any([t == ts.t for ts in self.gates]):
+            # if there isn't a timeslice at time t, create one
+            self.gates.append(TimeSlice(t, [gate], precomputed=gate.precomputed))
+        else:
+            # if there is a timeslice at time t, append the gate to the list of gates at time t
+            for ts in self.gates:
+                if ts.t == t:
+                    ts.append(gate)
+                    if not gate.precomputed:
+                        ts.precomputed = False
+                    break
 
         self._sort_gates()
-
+    
+    # getters and setters etc
     def add_gates(self, gates: List[Gate]):
         for gate in gates:
             self.add_gate(gate)
@@ -88,7 +177,6 @@ class Circuit:
         self.variables.append(Var(name, value))
 
     def add_variable(self, name: str):
-        v = Var(name, None)
         self.variables.append(Var(name, None, precomputed=False))
     
     def get_variable(self, name: str) -> Var:
@@ -97,6 +185,7 @@ class Circuit:
                 return var
         raise MissingVariable()
 
+    # this function runs the circuit a single time with parameters as floats
     def singleton(self, log: bool = False, **kwargs):
         # since compiled gates are already ordered in time, all we'd need to do is take tensor products of simultaneous gates
         # and then multiply the matrices together
@@ -104,17 +193,15 @@ class Circuit:
         state = np.zeros(2**len(self.qubits))
         state[0] = 1 # |0> state for all qubits
 
-        if not self.precomputed:
-            for var in self.variables:
-                if var.name not in kwargs and (var.precomputed is False or var.value is None):
-                    raise MissingVariable()
+        program = []
 
-            for gate in self.gates:
-                if not gate.precomputed:
-                    gate.post_compute(kwargs[gate.vars[0].name])
-                    debug_log(f"post computed {gate} with v={kwargs[gate.vars[0].name]}", log)
+        for ts in self.compiled_gates:
+            if not ts.precomputed: # if the gates depend on a variable, inject the variable and compute the tensor product
+                debug_log(f"compiling {ts} with v={kwargs[ts.dependencies[0].name]}", log)
+                ts.compile(len(self.qubits), log=log, **kwargs)
+            program.append(ts.unitary)
 
-        program = compile_gates(self.gates.copy(), len(self.qubits), log=log)
+        debug_log(f"running program {program}", log)
         
         for gate in program:
             state = np.dot(state, gate.mat)
@@ -125,6 +212,17 @@ class Circuit:
         ranges = [] 
         iterations = 1
         variable_state = {}
+        
+        if not self.compiled:
+            for ts in self.gates:
+                if ts.precomputed:
+                    # if the gates are static/don't depend on a variable, compile them once and never again
+                    self.compiled_gates.append(ts.compile(len(self.qubits), log=log, **kwargs))
+                else:
+                    # else we need to deal with them on every singleton :D
+                    self.compiled_gates.append(ts)
+
+            self.compiled = True
 
         for k, v in kwargs.items():
             if isinstance(v, Range):
@@ -136,12 +234,14 @@ class Circuit:
 
         results = Result([], list(kwargs.keys()))
         
+        # take all possible combinations of the ranges (sweeps or whatever) and run the circuit with those values
         possible_range_values = cartesian_product(*[r.space for r in ranges])
         for i in range(iterations):
             for idx, s in enumerate(possible_range_values[i]):
                 variable_state[ranges[idx].name] = s
                 debug_log(f"running with {variable_state}", log)
 
+            # use singleton to run the circuit with the values as floats
             results.append(self.singleton(log=log, **variable_state))
 
         return results
