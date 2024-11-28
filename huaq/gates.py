@@ -38,6 +38,7 @@ class Gate:
         self.n = name
 
         self.precomputed = True
+        self.entangling = False
 
     def __init_postcomputed__(self, time: int, qubits: List[int], name: str, variables: List[Var]):
         # if it is not precomputed, it will be related to a Var object, needs a postcompute method
@@ -220,7 +221,8 @@ class CNot(Gate):
                          [0, 0, 1, 0]]).astype(complex)
 
         super().__init__(time, mat, list(qubits), "CX")
-
+        
+        self.entangling = True
 
 # two qubit CZ
 class CZ(Gate):
@@ -231,6 +233,8 @@ class CZ(Gate):
                          [0, 0, 0, -1]]).astype(complex)
 
         super().__init__(time, mat, list(qubits), "CZ")
+
+        self.entangling = True
 
 # two qubit SWAP
 class Swap(Gate):
@@ -268,6 +272,8 @@ class eXX(Gate):
             super().__init__(time, mat, list(qubits), f"eXX({exponent})")
         else:
             super().__init_postcomputed__(time, list(qubits), "eXX", [exponent])
+
+        self.entangling = True
 
     def post_compute(self, value: float, ret: bool = False):
         f = cmath.exp(1j * value * np.pi / 2)
