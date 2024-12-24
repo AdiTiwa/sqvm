@@ -10,6 +10,3 @@ def algorithm_time(func, num = 100):
     execution_time = timeit(func, number=num)
     
     return execution_time / num
-
-def overlap(l1, l2):
-    return len(np.union1d(l1, l2))

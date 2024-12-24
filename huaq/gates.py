@@ -1,14 +1,13 @@
 import numpy as np
 import cmath
 from typing import List, Union
-from deprecated import deprecated
 
 from .exceptions import *
 from .types import Var
 
 INVSQRT2 = 1 / cmath.sqrt(2)
 
-@deprecated("use tensor_product instead")
+# SLOWER :D
 def tensor_prod(A: np.matrix, B:np.matrix):
     tensor_product_flat = np.zeros((A.shape[0] * B.shape[0], A.shape[0] * B.shape[0]), complex) 
 
@@ -39,7 +38,6 @@ class Gate:
         self.n = name
 
         self.precomputed = True
-        self.entangling = False
 
     def __init_postcomputed__(self, time: int, qubits: List[int], name: str, variables: List[Var]):
         # if it is not precomputed, it will be related to a Var object, needs a postcompute method
@@ -75,12 +73,8 @@ class Gate:
 
 # tensor product of two gates, kronecker product of their matrices
 def gate_kron(g1: Gate, g2: Gate, t):
-    g = Gate(t, tensor_product(g1.mat, g2.mat), g1.qbts + g2.qbts, f"{g1.n} {g2.n}")
-    if g1.entangling or g2.entangling:
-        g.entangling = True
-    return g
+    return Gate(t, tensor_product(g1.mat, g2.mat), g1.qbts + g2.qbts, f"{g1.n} {g2.n}")
 
-@deprecated("use id_gate_kron instead")
 def identity_gate_kron(g1: Gate, below: bool, t):
     # tensor product is easier to compute by just duplication the matrix for the corners of a larger square matrix
 
@@ -95,19 +89,6 @@ def identity_gate_kron(g1: Gate, below: bool, t):
         return Gate(t, mat, g1.qbts + [max(g1.qbts) + 1], f"{g1.n} I")
     else:
         return Gate(t, mat, g1.qbts + [min(g1.qbts) - 1], f"I {g1.n}")
-
-def id_gate_kron(g1: Gate, qubit: int, t):
-    mat = np.matrix(np.zeros((2 * g1.mat.shape[0], 2 * g1.mat.shape[1]), complex))
-
-    for i in range(g1.mat.shape[0]):
-        for j in range(g1.mat.shape[1]):
-            mat[i, j] = g1.mat.item(i, j)
-            mat[i + g1.mat.shape[0], j + g1.mat.shape[1]] = g1.mat.item(i, j)
-
-    g = Gate(t, mat, g1.qbts + [qubit], f"{g1.n} I")
-    if g1.entangling:
-        g.entangling = True
-    return g
 
 class I(Gate):
     def __init__(self, time: int, qubit: int):
@@ -239,8 +220,7 @@ class CNot(Gate):
                          [0, 0, 1, 0]]).astype(complex)
 
         super().__init__(time, mat, list(qubits), "CX")
-        
-        self.entangling = True
+
 
 # two qubit CZ
 class CZ(Gate):
@@ -251,8 +231,6 @@ class CZ(Gate):
                          [0, 0, 0, -1]]).astype(complex)
 
         super().__init__(time, mat, list(qubits), "CZ")
-
-        self.entangling = True
 
 # two qubit SWAP
 class Swap(Gate):
@@ -290,8 +268,6 @@ class eXX(Gate):
             super().__init__(time, mat, list(qubits), f"eXX({exponent})")
         else:
             super().__init_postcomputed__(time, list(qubits), "eXX", [exponent])
-
-        self.entangling = True
 
     def post_compute(self, value: float, ret: bool = False):
         f = cmath.exp(1j * value * np.pi / 2)
